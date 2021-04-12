@@ -1,0 +1,30 @@
+version: '3'
+
+services:
+  api:
+    container_name: benchmark_api
+    restart: always
+    image: python:3.8
+    ports:
+      - ${API_BIND_IP}:${API_PORT}:80
+    command: "python auth_api.py"
+    volumes:
+      - ./auth_api.py:/auth_api.py
+
+  broker:
+    container_name: benchmark_broker
+    restart: always
+    build:
+      context: .
+      dockerfile: ./docker/mosquitto/Dockerfile
+    ports:
+      - ${MQTT_BIND_IP}:${MQTT_PORT}:2083
+      - ${MQTT_BIND_IP}:${MQTT_PORT_LISTENER}:9083
+    volumes:
+      - ./mqttdata_nvgsrv:/var/lib/mosquitto/
+#    deploy:
+#      resources:
+#        limits:
+#          cpus: ${MQTT_CPU_LIMIT}
+    depends_on:
+      - api

@@ -1,0 +1,16 @@
+[scripts]
+publisher = "python -m publisher"
+subscriber = "python -m subscriber"
+
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+paho-mqtt = "==1.5.0"
+
+[dev-packages]
+
+[requires]
+python_version = "3.9"
