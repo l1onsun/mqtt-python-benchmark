@@ -9,8 +9,10 @@ name = "pypi"
 
 [packages]
 paho-mqtt = "==1.5.0"
+colorlog = "*"
 
 [dev-packages]
+isort = "*"
 
 [requires]
 python_version = "3.9"

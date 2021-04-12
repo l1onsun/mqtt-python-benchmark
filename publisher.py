@@ -1,11 +1,14 @@
+import sys
 import time
 import uuid
 from timeit import timeit
-import sys
 
 import paho.mqtt.client as mqttc
 
-TOPIC = "benchmark/test"
+from multiprocessing import Process
+import os
+
+from share import TOPIC
 
 
 def get_mqtt_client():
@@ -62,15 +65,25 @@ def publish_x_times(number: int):
     return result_time
 
 
-def main():
-    assert len(sys.argv) == 2, "Usage: python publisher.py <PUBLICATIONS_NUM>"
-    assert (num := sys.argv[1]).isdigit(), "PUBLICATIONS_NUM should be digit"
-    num = int(num)
-
-    print(f"starting publisher (PUBLICATIONS_NUM = {num})")
+def benchmark(process_i, num):
+    print(f"starting publisher ({process_i})")
     result_time = publish_x_times(num)
     print(f"{num}x publications were done in {result_time} seconds")
     print(f"=> {num / result_time} pubs per second")
+
+
+def main():
+    assert len(sys.argv) in (2, 3), "Usage: python publisher.py <PUBLICATIONS_NUM> [PROCESS_NUM]"
+    assert sys.argv[1].isdigit(), "PUBLICATIONS_NUM should be digit"
+    num = int(sys.argv[1])
+    process_num = 1
+    if len(sys.argv) >= 3:
+        assert sys.argv[2].isdigit(), "PROCESS_NUM should be digit"
+        process_num = int(sys.argv[2])
+
+    processes = [Process(target=benchmark, args=(i, num)) for i in range(process_num)]
+    [p.start() for p in processes]
+    [p.join() for p in processes]
 
 
 if __name__ == '__main__':
