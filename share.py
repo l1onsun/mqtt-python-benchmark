@@ -14,6 +14,12 @@ def get_client(username: str):
     return client
 
 
+class MockLogger():
+    def __getattr__(self, item):
+        return lambda *args, **kwargs: None
+
+
+
 def get_logger(name: str):
     logger = colorlog.getLogger(name)
     logger.setLevel("DEBUG")
@@ -25,6 +31,7 @@ def get_logger(name: str):
         )
     )
     logger.addHandler(handler)
+    # return MockLogger()
     return logger
 
 

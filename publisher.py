@@ -1,78 +1,54 @@
 import sys
 import time
 import uuid
-from timeit import timeit
-
-import paho.mqtt.client as mqttc
-
 from multiprocessing import Process
-import os
 
-from share import TOPIC
-
-
-def get_mqtt_client():
-    client = mqttc.Client(client_id="benchmark_publisher",
-                          clean_session=True,
-                          transport="tcp")
-    client.username_pw_set(username="SERVER_PUBLISHER", password='-')
-
-    def on_publish(this_client: mqttc.Client, userdata, mid):
-        print(f"mid: {mid}")
-
-    client.on_publish = on_publish
-
-    print("connecting to broker")
-    client.connect(host="127.0.0.1", port=2083)
-    client.loop_start()
-
-    return client
+from share import BENCHMARK_END_WORD, TOPIC, Counter, get_client, get_logger
 
 
-def payload_factory(number: int):
-    def payload():
-        payload.remained -= 1
-        if payload.remained == 0:
-            return "benchmark_end"
-        return str(uuid.uuid4())
+class Publisher(Process):
+    def __init__(self, index: int, number: int):
+        super().__init__()
+        self.name = f"benchmark_publisher_{index}"
+        self.number = number
+        self.logger = get_logger(self.name)
+        self.client = get_client(self.name)
+        self.client.on_publish = lambda c, u, m: self.on_publish()
+        self.send_counter = Counter()
+        self.approved_counter = Counter()
 
-    payload.remained = number
-    return payload
+    def run(self) -> None:
+        self.logger.info(f"starting publisher ({self.name})")
+        self.client.connect(host="127.0.0.1", port=2083)
+        self.logger.info(f"loop started ({self.number})")
+        self.client.loop_start()
+        for i in range(self.number - 1):
+            payload = str(uuid.uuid4())
+            self.publish(payload)
+        self.publish(BENCHMARK_END_WORD)
+        time.sleep(3)
+        self.client.loop_stop()
+
+    def complete(self):
+        cps = self.approved_counter.get_counts_per_second()
+        self.logger.info("benchmark complete")
+        self.logger.info(f"send {cps} msgs per second")
+        self.client.disconnect()
+
+    def on_publish(self):
+        self.approved_counter.count()
+        self.logger.info(f"msg send approve {self.approved_counter.counts}/{self.number}")
+        if self.approved_counter.counts >= self.number:
+            self.complete()
+
+    def publish(self, payload: str):
+        self.send_counter.count()
+        status = self.client.publish(TOPIC, payload=payload, qos=2)[0]
+        if status != 0:
+            self.logger.error(f"publish field (status: {status})")
 
 
-def publish(client: mqttc.Client, payload_gen):
-    payload = payload_gen()
-    result = client.publish(TOPIC, payload=payload, qos=2)
-    status = result[0]
-    if status == 0:
-        print(f"send `{payload}` to topic `{TOPIC}`")
-    else:
-        print("something failed while send")
-
-
-def publish_x_times(number: int):
-    client = get_mqtt_client()
-    payload_gen = payload_factory(number)
-    result_time = timeit(
-        lambda: publish(client, payload_gen),
-        number=number
-    )
-    # for i in range(number):
-    #     publish(client, payload_gen)
-    # result_time = 1
-    time.sleep(5)
-    client.disconnect()
-    return result_time
-
-
-def benchmark(process_i, num):
-    print(f"starting publisher ({process_i})")
-    result_time = publish_x_times(num)
-    print(f"{num}x publications were done in {result_time} seconds")
-    print(f"=> {num / result_time} pubs per second")
-
-
-def main():
+def parse_args_and_run():
     assert len(sys.argv) in (2, 3), "Usage: python publisher.py <PUBLICATIONS_NUM> [PROCESS_NUM]"
     assert sys.argv[1].isdigit(), "PUBLICATIONS_NUM should be digit"
     num = int(sys.argv[1])
@@ -81,10 +57,10 @@ def main():
         assert sys.argv[2].isdigit(), "PROCESS_NUM should be digit"
         process_num = int(sys.argv[2])
 
-    processes = [Process(target=benchmark, args=(i, num)) for i in range(process_num)]
+    processes = [Publisher(i, num) for i in range(process_num)]
     [p.start() for p in processes]
     [p.join() for p in processes]
 
 
 if __name__ == '__main__':
-    main()
+    parse_args_and_run()

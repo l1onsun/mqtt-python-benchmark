@@ -11,8 +11,8 @@ class Subscriber:
     def __init__(self):
         self.client = get_client("benchmark_subscriber")
         self.counter = Counter()
-        self.client.on_connect = lambda c, u, f, r: Subscriber.on_connect(self, r)
-        self.client.on_message = lambda c, u, m: Subscriber.on_message(self, m)
+        self.client.on_connect = lambda c, u, f, r: self.on_connect(r)
+        self.client.on_message = lambda c, u, m: self.on_message(m)
 
     def start(self):
         logger.info("connecting to broker")
@@ -25,6 +25,7 @@ class Subscriber:
         cps = self.counter.get_counts_per_second()
         logger.info("benchmark complete")
         logger.info(f"received {cps} msgs per second")
+        # print(f"received {cps} msgs per second")
         self.client.disconnect()
 
     def on_connect(self, rc: int):
