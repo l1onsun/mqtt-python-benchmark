@@ -25,6 +25,7 @@ class Publisher(Process):
         for i in range(self.number - 1):
             payload = str(uuid.uuid4())
             self.publish(payload)
+            time.sleep(0.01)
         self.publish(BENCHMARK_END_WORD)
         time.sleep(3)
         self.client.loop_stop()
