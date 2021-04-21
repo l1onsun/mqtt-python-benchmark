@@ -22,7 +22,7 @@ class Publisher(Process):
         self.client.connect(host="127.0.0.1", port=2083)
         self.logger.info(f"loop started ({self.number})")
         self.client.loop_start()
-        for i in range(self.number - 1):
+        for _ in range(self.number - 1):
             payload = str(uuid.uuid4())
             self.publish(payload)
             time.sleep(0.01)
